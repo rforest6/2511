@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>岳麓山抗战遗址探索</title>
+
+    <style>
+      /* 全局样式 */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    color: #333;
+    transition: background-color 0.5s;
+}
+
+/* 屏幕切换样式 */
+.screen {
+    display: none;
+    text-align: center;
+    padding: 20px;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 欢迎页面样式 */
+#welcome-screen {
+    background-color: #004d40; /* 深绿色背景 */
+    color: white;
+}
+
+#welcome-screen h1 {
+    font-size: 2.5em;
+    margin-bottom: 0.5em;
+}
+
+#welcome-screen p {
+    font-size: 1.2em;
+    margin-bottom: 1.5em;
+}
+
+.options button {
+    padding: 10px 25px;
+    margin: 0 15px;
+    font-size: 1.1em;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#btn-yes {
+    background-color: #ff9800; /* 探索按钮 - 橙色 */
+    color: white;
+}
+
+#btn-yes:hover {
+    background-color: #e68900;
+}
+
+#btn-no {
+    background-color: #bdbdbd;
+    color: #333;
+}
+
+#btn-no:hover {
+    background-color: #a0a0a0;
+}
+
+/* 地图容器样式 */
+#main-map-screen {
+    background-color: white;
+    padding: 0;
+}
+
+#map-container {
+    width: 90%;
+    max-width: 1200px;
+    height: 70vh; /* 地图占据屏幕高度的70% */
+    margin: 20px auto;
+    border: 2px solid #ccc;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 信息弹窗样式 */
+#info-popup {
+    display: none; /* 默认隐藏 */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4); /* 半透明背景 */
+}
+
+.popup-content {
+    background-color: #fefefe;
+    margin: 10% auto; /* 顶部10%, 居中 */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* 弹窗宽度 */
+    max-width: 500px;
+    border-radius: 10px;
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.close-btn {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: #333;
+    text-decoration: none;
+}
+
+#popup-title {
+    color: #004d40;
+    border-bottom: 2px solid #ff9800;
+    padding-bottom: 10px;
+    margin-top: 0;
+}
+
+#btn-navigate {
+    background-color: #ff9800;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    margin-top: 15px;
+    cursor: pointer;
+    display: block; /* 独占一行 */
+    width: 100%;
+    font-size: 1.1em;
+    transition: background-color 0.3s;
+}
+
+#btn-navigate:hover {
+    background-color: #e68900;
+}
+    </style>
+
+    <script type="text/javascript" src="https://api.map.baidu.com/api?v=3.0&ak=h2e6Ofrn9wP57hIx8yQwAMhzdueEFv0S"></script>
+</head>
+<body>
+
+    <div id="welcome-screen" class="screen active">
+        <h1>⛰️ 岳麓山抗战遗址探索</h1>
+        <p>您是否要选择探索岳麓山抗战遗址？</p>
+        <div class="options">
+            <button id="btn-yes">是，我要探索！</button>
+            <button id="btn-no">否，先离开。</button>
+        </div>
+    </div>
+
+    <div id="main-map-screen" class="screen">
+        <h2>抗战遗址分布图</h2>
+        <div id="map-container"></div>
+    </div>
+
+    <div id="info-popup">
+        <div class="popup-content">
+            <span class="close-btn">&times;</span>
+            <h3 id="popup-title">遗址名称</h3>
+            <div id="popup-text">
+                <p>这里是遗址的历史和故事。</p>
+                </div>
+            <button id="btn-navigate">导航至此处</button>
+        </div>
+    </div>
+
+   <script>
+        // 1. 遗址数据 (使用真实的经纬度，以百度地图坐标系为准)
+const historicalSites = [
+    {
+        name: "长沙抗战纪念馆（原炮兵指挥所旧址）",
+        point: new BMap.Point(112.93600, 28.19900), 
+        history: "原为建于1935年的湖南省会警察纪念堂，长沙会战中成为**第九战区炮兵指挥所**，为第三次长沙会战大捷立下赫赫军功。现为长沙抗战纪念馆。",
+        story: "作为炮兵指挥中枢，这里曾是保卫长沙城防线的关键。岳麓山上的150mm榴弹炮就是在此指挥下发挥了巨大作用。",
+        img: "",
+        id: "site1"
+    },
+    {
+        name: "陆军第七十三军抗战阵亡将士公墓",
+        point: new BMap.Point(112.93550, 28.19650), 
+        history: "位于赫石坡景区山坡上，始建于1946年，安放着七十三军部队阵亡将士的遗骨。经过多次修复，现为重要的爱国主义教育基地。",
+        story: "该公墓在文革中曾严重受损，后经修复重建。这里铭刻着数百位在长沙会战中牺牲的将士名字。",
+        img: "",
+        id: "site2"
+    },
+    {
+        name: "抗战阵亡将士名录石栏",
+        point: new BMap.Point(112.93400, 28.19850), 
+        history: "位于云麓宫前坪，计有19块石栏，铭刻着约**五千名**在长沙会战中牺牲的烈士姓名。是岳麓山最大的烈士名录群。",
+        story: "这些名录石栏是抗战胜利后为铭记历史而建立的，承载着无数英烈的名字，提醒着后人勿忘国耻。",
+        img: "",
+        id: "site3"
+    },
+    {
+        name: "岳麓山古炮台遗址",
+        point: new BMap.Point(112.93100, 28.20050), 
+        history: "位于山顶观景台下方山坡，是当时炮兵主阵地之一。其远程火力对牵制和打击日军起到了关键作用。",
+        story: "在第三次长沙会战中，我军曾用假炮引诱日机轰炸，成功保存了真正的火炮，继续对日军进行猛烈打击。",
+        img: "",
+        id: "site4"
+    },
+    {
+        name: "第九战区司令部临时指挥部旧址",
+        point: new BMap.Point(112.93850, 28.19500), 
+        history: "岳麓山有多处战时指挥所和战壕，这里是第九战区司令部在战时的临时指挥部之一。",
+        story: "指挥部藏于深山之中，便于隐蔽和指挥。战壕遗迹至今仍存，总长达10余公里。",
+        img: "",
+        id: "site5"
+    }
+];
+
+// 2. DOM元素获取
+const welcomeScreen = document.getElementById('welcome-screen');
+const mainMapScreen = document.getElementById('main-map-screen');
+const btnYes = document.getElementById('btn-yes');
+const btnNo = document.getElementById('btn-no');
+const infoPopup = document.getElementById('info-popup');
+const closeBtn = infoPopup.querySelector('.close-btn');
+const popupTitle = document.getElementById('popup-title');
+const popupText = document.getElementById('popup-text');
+const btnNavigate = document.getElementById('btn-navigate');
+
+let map = null; // 百度地图实例
+let currentTargetSite = null; // 当前弹窗显示的遗址数据
+
+// 3. 初始交互逻辑 (欢迎页)
+btnYes.addEventListener('click', () => {
+    // 切换到主地图页面
+    welcomeScreen.classList.remove('active');
+    mainMapScreen.classList.add('active');
+
+    // 初始化地图，确保在DOM元素可见后调用
+    if (!map) {
+        initBaiduMap();
+    } else {
+        // 如果地图已存在，刷新地图大小以适应新布局
+        map.checkResize();
+    }
+});
+
+btnNo.addEventListener('click', () => {
+    alert("感谢您的访问。期待您的下次探索！");
+    // 可以执行其他操作，如跳转到其他页面
+});
+
+// 4. 地图初始化函数
+function initBaiduMap() {
+    // 创建地图实例，设置中心点为岳麓山附近 (长沙市)
+    map = new BMap.Map("map-container");
+    const centerPoint = new BMap.Point(112.93600, 28.20000); // 岳麓山大致中心点
+    map.centerAndZoom(centerPoint, 15); // 设置中心点和缩放级别 (15级适合展示区域细节)
+
+    // 启用滚轮缩放、平移等控件
+    map.enableScrollWheelZoom(true);
+    map.addControl(new BMap.NavigationControl()); // 添加平移缩放控件
+    map.addControl(new BMap.ScaleControl()); // 添加比例尺控件
+
+    // 标记所有抗战遗址
+    addHistoricalSiteMarkers();
+}
+
+// 5. 添加遗址标记点
+function addHistoricalSiteMarkers() {
+    historicalSites.forEach(site => {
+        // 创建标记点 (Marker)
+        const marker = new BMap.Marker(site.point);
+
+        // 为标记点添加点击事件
+        marker.addEventListener('click', () => {
+            showSiteDetails(site);
+        });
+
+        // 添加到地图
+        map.addOverlay(marker);
+
+        // 可选：添加文字标注，显示遗址名称
+        const label = new BMap.Label(site.name, { offset: new BMap.Size(20, -10) });
+        label.setStyle({
+            color: "#004d40",
+            fontSize: "12px",
+            height: "20px",
+            lineHeight: "20px",
+            fontFamily: "微软雅黑",
+            border: "1px solid #ff9800",
+            padding: "2px 5px",
+            backgroundColor: "white",
+            borderRadius: "3px"
+        });
+        marker.setLabel(label);
+    });
+}
+
+// 6. 显示遗址详情弹窗
+function showSiteDetails(site) {
+    currentTargetSite = site; // 记录当前选择的遗址
+    popupTitle.textContent = site.name;
+    popupText.innerHTML = `
+        <h4>历史背景:</h4>
+        <p>${site.history}</p>
+        <h4>相关故事:</h4>
+        <p>${site.story}</p>
+        <p>${site.img}</p>
+    `;
+    infoPopup.style.display = 'block';
+}
+
+// 7. 关闭弹窗
+closeBtn.addEventListener('click', () => {
+    infoPopup.style.display = 'none';
+});
+
+// 点击弹窗外部也关闭
+window.addEventListener('click', (event) => {
+    if (event.target === infoPopup) {
+        infoPopup.style.display = 'none';
+    }
+});
+
+// 8. 导览功能 (路线规划)
+btnNavigate.addEventListener('click', () => {
+    if (!currentTargetSite) return;
+
+    // 隐藏弹窗
+    infoPopup.style.display = 'none';
+
+    // 尝试获取用户当前位置
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const userPoint = new BMap.Point(position.coords.longitude, position.coords.latitude);
+
+                // **注意：HTML5 Geolocation返回的是WGS84坐标，需要转换为百度地图坐标系 (BD09)**
+                // 百度地图API提供了坐标转换服务
+                const convertor = new BMap.Convertor();
+                convertor.translate([userPoint], 1, 5, (data) => {
+                    if(data.status === 0) {
+                        const bdUserPoint = data.points[0];
+                        
+                        // 清除之前的路线
+                        map.clearOverlays();
+                        addHistoricalSiteMarkers(); // 重新添加标记点
+
+                        // 创建驾车路线规划器
+                        const driving = new BMap.DrivingRoute(map, {
+                            renderOptions: {
+                                map: map,
+                                autoViewport: true // 自动调整视野
+                            },
+                            policy: BMAP_DRIVING_SHORTEST_DISTANCE // 最短距离
+                        });
+
+                        // 规划路线：从用户位置 (已转换) 到目标遗址
+                        driving.search(bdUserPoint, currentTargetSite.point);
+                        
+                        alert(`正在规划从您的当前位置到【${currentTargetSite.name}】的路线...`);
+                    } else {
+                        alert("获取用户位置失败或坐标转换错误，无法进行导航。");
+                    }
+                });
+
+            },
+            (error) => {
+                console.error("获取地理位置失败:", error);
+                alert("无法获取您的当前位置，请检查位置服务是否开启。");
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    } else {
+        alert("您的浏览器不支持地理定位功能，无法使用导航。");
+    }
+});
+
+// 确保在DOM加载完成后执行初始化
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始状态显示欢迎页
+    welcomeScreen.classList.add('active');
+});
+    </script>
+</body>
+</html>
